@@ -60,12 +60,16 @@ async def cbi(bot, ev: CQEvent):
     elif args[0] == '日总表':
         day = 0
         if len(args) >= 2 and args[1].isdigit():
-            day = int(args[1])
+            day = int(args[1]) - 1
+        if day < 0:
+            day = 0
         msg = await get_day_report(group_id, day)
     elif args[0] == '日出刀表':
         day = 0
         if len(args) >= 2 and args[1].isdigit():
-            day = int(args[1])
+            day = int(args[1]) - 1
+        if day < 0:
+            day = 0
         msg = await get_day_challenge_report(group_id, day)
     elif args[0] == 'boss出刀表':
         boss = 0

@@ -598,11 +598,11 @@ async def check_update():
                 data = await resp.json(content_type='application/json')
     except:
         return False
-    if 'updated_at' in data:
+    if 'pushed_at' in data:
         if update_time == '': #启动后第一次不报
-            update_time = data['updated_at']
+            update_time = data['pushed_at']
             return False
-        elif update_time != data['updated_at']:
-            update_time = data['updated_at']
+        elif update_time != data['pushed_at']:
+            update_time = data['pushed_at']
             return True
     return False
