@@ -111,6 +111,10 @@ yobot默认不响应未加入公会的QQ号码的报刀信息, 需要使用yobot
 
 `yobot\src\client\ybplugins\clan_battle\battle.py` 第409行, 将 `if finished >= 3:` 中的数字3改为100或更大数字.
 
+### 减小yobotAPI缓存时间以加快报刀速度
+
+`yobot\src\client\ybplugins\clan_battle\battle.py` 第997行, 将 `@timed_cached_func(max_len=64, max_age_seconds=10, ignore_self=True)` 中的数字10改为1.
+
 ## 许可
 
 本项目采用AGPLv3协议开源

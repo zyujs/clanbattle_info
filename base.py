@@ -357,13 +357,12 @@ async def query_boss_data(group_id, boss = 0, page = 0):
 #一个群组在任何操作前必须调用该函数生成基本设置
 def preinit_group(group_id: str):
     group_id = str(group_id)
-    #初始化线程锁
     if group_id not in group_config:
         group_config[group_id] = {}
     if group_id not in group_data:
         group_data[group_id] = {}
     if group_id not in clanbattle_info:
-        clanbattle_info[group_id] = {'failed_cnt': 0}
+        clanbattle_info[group_id] = {}
     if group_id not in all_challenge_list:
         all_challenge_list[group_id] = {}
     if group_id not in boss_challenge_list:
@@ -600,15 +599,17 @@ async def check_update():
     data = None
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get('https://api.github.com/repos/zyujs/clanbattle_info') as resp:
+            async with session.get('https://api.github.com/repos/zyujs/clanbattle_info/commits') as resp:
                 data = await resp.json(content_type='application/json')
     except:
         return False
-    if 'pushed_at' in data:
+    try:
+        last_commit_time = data[0]['commit']['committer']['date']
         if update_time == '': #启动后第一次不报
-            update_time = data['pushed_at']
-            return False
-        elif update_time != data['pushed_at']:
-            update_time = data['pushed_at']
+            update_time = last_commit_time
+        elif update_time != last_commit_time:
+            update_time = last_commit_time
             return True
+    except:
+        return False
     return False

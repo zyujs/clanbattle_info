@@ -180,7 +180,6 @@ async def get_yobot_challenges(group_id):
 #等待yobot同步当前出刀记录
 #ret: 0 成功 1 出错 2 超时
 # 由于yobot内部get_report有时间缓存机制, 获取到最新记录最多要等待10秒
-# TODO 检查全部yobot出刀表 防止报刀过程中有人手动报
 async def wait_yobot_sync(group_id: str, challenge: dict):
     group_id = str(group_id)
     for _ in range(10):
@@ -326,9 +325,9 @@ async def check_yobot(group_id: str) -> (int, list or str):
                 return 0, []
 
     index = -1
-    #如果yobot数据不为空 查找最后一条数据对应位置
-    if len(yobot_challenges) > 0:
-        yobot_challenge = yobot_challenges[-1]
+    yobot_index = len(yobot_challenges) - 1
+    #要处理yobot最新记录是掉刀记录的情况 考虑连续多条0伤害掉刀记录的极端情况 同时还要考虑确实有0伤害甜心刀游戏记录
+    while index < 0 and yobot_index >=0:
         #查找yobot最新一条记录在总表中的位置
         for i in range(len(all_challenge_list[group_id])):
             challenge = all_challenge_list[group_id][i]
@@ -336,13 +335,17 @@ async def check_yobot(group_id: str) -> (int, list or str):
                 challenge['qqid'] = name2qq[challenge['name']]
             else:
                 challenge['qqid'] = name2qq[magic_name]
-            if check_challenge_equal(challenge, yobot_challenge):
+            if check_challenge_equal(challenge, yobot_challenges[yobot_index]):
                 index = i
                 break
-        if index == -1:
-            dt = datetime.datetime.fromtimestamp(yobot_challenge['challenge_time'])
-            msg = f"未找到与yobot最新出刀记录匹配的游戏数据,请检查yobot伤害记录及角色名是否与游戏记录一致.\nyobot最近出刀数据:\n{format_yobot_challenge(yobot_challenge)}游戏最新出刀数据:\n{format_challenge(all_challenge_list[group_id][-1])}"
-            return 1, msg
+        if yobot_challenges[yobot_index]['damage'] != 0:
+            break
+        yobot_index -= 1
+    
+    if index < 0:
+        dt = datetime.datetime.fromtimestamp(yobot_challenges[yobot_index]['challenge_time'])
+        msg = f"未找到与yobot最新出刀记录匹配的游戏数据,请检查yobot伤害记录及角色名是否与游戏记录一致.\nyobot最近出刀数据:\n{format_yobot_challenge(yobot_challenges[yobot_index])}游戏最新出刀数据:\n{format_challenge(all_challenge_list[group_id][-1])}"
+        return 1, msg
     
     #找到对应数据
     new_challenges = []
