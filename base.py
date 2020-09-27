@@ -29,6 +29,7 @@ __all__ = [
     'get_pcr_days_from',
     'get_state_msg',
     'check_update',
+    'send_group_msg',
     ]
 
 magic_name = '13c941a144c18a98eb54b493ff0bd279' #魔法昵称,用于将全部未知昵称指定给某个qq, 如有重名建议打死
@@ -91,9 +92,9 @@ async def update_challenge_list(group_id: str) -> int:
         start = 0
         while True:
             #寻找该boss本地最后一条出刀数据在新获取数据中的位置(index)
-            #当前循环没有找到就继续循环拉去下一页,直到找到或者读取完完整列表.
+            #当前循环没有找到就继续循环拉取下一页,直到找到或者读取完全部记录.
             #没有新出刀记录index = 0, 本地记录为空index=-1
-            #这个动作不能在整5分进行,否则bigfun数据刷新会导致列表不一致.
+            #这个动作不能在整5分进行,否则bigfun数据刷新会导致出刀数据不连续.
             ret, temp_challenges = await query_boss_data(group_id, boss, page)
             if ret != 0:
                 group_config[group_id]['info'] = temp_challenges
@@ -385,11 +386,11 @@ async def init_group(group_id: str, internal: bool = False) -> int:
     #载入群状态记录
     if load_group_data(group_id) != 0:
         return 1
-
+    #清除出刀数据 以便于数据异常恢复
     clanbattle_info[group_id] = {}
     boss_challenge_list[group_id] = [[] for i in range(5)]
     all_challenge_list[group_id] = []
-
+    #依次从接口获取数据, 某个过程失败就不再继续后续进程
     if await update_clanbattle_info_boss(group_id) != 0 or await update_clanbattle_info_day(group_id) != 0 or await safe_update_challenge_list(group_id) != 0:
         if internal:
             clanbattle_info[group_id]['failed_cnt'] = 1
@@ -613,3 +614,9 @@ async def check_update():
     except:
         return False
     return False
+
+async def send_group_msg(bot, group_id: str, msg):
+    try:
+        await bot.send_group_msg(group_id=int(group_id), message = msg)
+    except:
+        traceback.print_exc()
