@@ -30,6 +30,7 @@ __all__ = [
     'get_state_msg',
     'check_update',
     'send_group_msg',
+    'get_daystr_from_daylist',
     ]
 
 magic_name = '13c941a144c18a98eb54b493ff0bd279' #魔法昵称,用于将全部未知昵称指定给某个qq, 如有重名建议打死
@@ -69,12 +70,15 @@ update_time = ''
 async def update_challenge_list(group_id: str) -> int:
     #获取第一个需要更新的boss
     boss = 0
+    full_update = False
     if group_id in all_challenge_list and len(all_challenge_list[group_id]) > 0:
         challenge = all_challenge_list[group_id][-1]
         boss = challenge['boss']
         if challenge['kill'] == 1:
             boss += 1
             boss %= 5
+    else:
+        full_update = True
 
     #第一次运行数据为空,需要创建
     if group_id not in boss_challenge_list:
@@ -114,13 +118,13 @@ async def update_challenge_list(group_id: str) -> int:
         for item in reversed(challenges[0:index]): #将(0~index-1)的新纪录加入列表
             changed = True
             boss_challenge_list[group_id][boss].append(item)
+        boss += 1
+        boss %= 5
+        boss_count += 1
         #如果该boss最后一条出刀为尾刀,则表示可能会存在下一个boss的新出刀记录,继续更新下一个boss,否则就此结束数据更新.
         if len(challenges) == 0 or challenges[0]['kill'] != 1:
-            break
-        else:
-            boss += 1
-            boss %= 5
-            boss_count += 1
+            if not full_update:
+                break
         #这里处理恰好5个boss最后一刀都是尾刀的情况,防止死循环
         if boss_count > 5:
             break
@@ -271,9 +275,12 @@ async def update_clanbattle_info_day(group_id: str):
     else:
         clanbattle_info[group_id]['boss_info'] = {}
     #公会信息 {name: "内鬼连结", last_ranking: -1, last_total_ranking: "B"}
-    #clanbattle_info[group_id]['clan_info'] = data['clan_info']
+    if 'clan_info' in data:
+        clanbattle_info[group_id]['clan_info'] = data['clan_info']
+    else:
+        clanbattle_info[group_id]['clan_info'] = {}
+    #日期列表 ["2020-08-29", "2020-08-28", "2020-08-27", "2020-08-26", "2020-08-25", "2020-08-24"]
     if 'day_list' in data:  #day_list在公会战开始后数小时刷新 直接更新全部日期 降序排列
-        #日期列表 ["2020-08-29", "2020-08-28", "2020-08-27", "2020-08-26", "2020-08-25", "2020-08-24"]
         clanbattle_info[group_id]['day_list'] = data['day_list']
     else:
         clanbattle_info[group_id]['day_list'] = []
@@ -487,17 +494,14 @@ async def update_clanbattle_data(group_id: str) -> int:
         clanbattle_info[group_id]['failed_cnt'] = 0
     
     #检查现在是否在会战中
-    day_str = clanbattle_info[group_id]['day_list'][0] #日期列表是降序的,第一位为最后一天
-    #day_str = '2020-09-12'
-    dt = datetime.datetime(*map(int, day_str.split('-')))
-    dt = dt.replace(hour=5, minute=30, second=0, microsecond=0)
-    if get_pcr_days_from(dt) > 1:
+    if not get_daystr_from_daylist(group_id):
         group_config[group_id]['info'] = '公会战已结束' #能获取到日期列表但当天不在列表内 一定是公会战已结束 公会战开始前日期列表是空的
         halt_until_tomorrow(group_id)
 
     group_data[group_id]['battle_info'] = clanbattle_info[group_id]['battle_info']   #会战信息 用于判断新公会站开始
     save_group_data(group_id)
     return 0
+
         
 #获取未推送的新出刀记录
 def get_new_challenges(group_id: str) -> list:
@@ -553,6 +557,28 @@ def get_pcr_days_from(dt):
         pcr_today -= datetime.timedelta(days=1)
     pcr_today = pcr_today.replace(hour=5, minute=0, second=0, microsecond=0)
     return math.ceil((pcr_today - dt) / datetime.timedelta(days=1))
+
+#从day_list获取会战第day天的日期字符串, day=0时取当天日期
+def get_daystr_from_daylist(group_id: str, day: int = 0) -> str:
+    day_list = []
+    if day > 0:
+        day = 0 - day #1 ~ 6 -> -1 ~ -6
+        try:
+            return clanbattle_info[group_id]['day_list'][day]
+        except:
+            pass
+    elif day == 0:
+        try:
+            day_list = clanbattle_info[group_id]['day_list']
+        except:
+            return None
+        for i in range(len(day_list)):
+            day_str = day_list[i] #日期列表是降序的,第一位为最后一天
+            dt = datetime.datetime(*map(int, day_str.split('-')))
+            dt = dt.replace(hour=5, minute=30, second=0, microsecond=0)
+            if get_pcr_days_from(dt) == 0:
+                return day_str
+    return None
 
 def get_state_msg(group_id: str):
     msg = '当前状态:'
