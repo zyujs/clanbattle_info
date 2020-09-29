@@ -6,6 +6,7 @@ import asyncio
 import threading
 import traceback
 import math
+import nonebot
 
 __all__ = [
     #数据
@@ -31,6 +32,8 @@ __all__ = [
     'check_update',
     'send_group_msg',
     'get_daystr_from_daylist',
+    'get_clanbattle_report_instance',
+    'generate_data_for_clanbattle_report',
     ]
 
 magic_name = '13c941a144c18a98eb54b493ff0bd279' #魔法昵称,用于将全部未知昵称指定给某个qq, 如有重名建议打死
@@ -646,3 +649,49 @@ async def send_group_msg(bot, group_id: str, msg):
         await bot.send_group_msg(group_id=int(group_id), message = msg)
     except:
         traceback.print_exc()
+
+
+def get_clanbattle_report_instance():
+    plugins = nonebot.get_loaded_plugins()
+    for plugin in plugins:
+        m = str(plugin.module)
+        m = m.replace('\\\\', '/')
+        m = m.replace('\\', '/')
+        if 'modules/clanbattle_report/report.py' in m:
+            return plugin.module
+    return None
+
+def generate_data_for_clanbattle_report(group_id: str, nickname: str):
+    result = {
+        'code': 1,
+        'msg': '无数据',
+        'nickname': nickname,
+        'clanname': '',
+        'game_server': 'cn',
+        'challenge_list': [],
+        'background': 0,
+    }
+    try:
+        result['clanname'] = clanbattle_info[group_id]['clan_info']['name']
+    except:
+        pass
+    
+    if group_id not in all_challenge_list:
+        return
+
+    for item in all_challenge_list[group_id]:
+        if item['name'] == nickname:
+            challenge = {
+                'damage': item['damage'],
+                'type': 0, #类型 0 普通 1 尾刀 2 补偿刀
+                'boss': item['boss'],
+                'cycle': item['lap_num'],
+            }
+            if item['kill'] != 0:
+                challenge['type'] = 1
+            elif item['reimburse'] != 0:
+                challenge['type'] = 2
+            result['challenge_list'].append(challenge)
+    if len(result['challenge_list']) > 0:
+        result['code'] = 0
+    return result
