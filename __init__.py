@@ -14,7 +14,7 @@ from .base import *
 from .info import *
 from .yobot import *
 
-HELP_MSG = 'clanbattle_info\n公会战信息管理系统\n指令前缀:cbi\n指令表:帮助,总表,日总表,日出刀表,boss出刀表,个人出刀表,boss状态,状态,检查成员,绑定,解除绑定,查看绑定,绑定未知成员,解除绑定未知成员,继续报刀,暂停报刀,重置报刀进度,重置推送进度,初始化,生成会战报告,生成离职报告\n详细说明见项目文档: https://github.com/zyujs/clanbattle_info'
+HELP_MSG = 'clanbattle_info\n公会战信息管理系统\n指令前缀:cbi\n指令表:帮助,总表,日总表,日出刀表,boss出刀表,个人出刀表,boss状态,预约,取消预约,查看预约,状态,检查成员,绑定,解除绑定,查看绑定,绑定未知成员,解除绑定未知成员,继续报刀,暂停报刀,重置报刀进度,重置推送进度,初始化,生成会战报告,生成离职报告\n详细说明见项目文档: https://github.com/zyujs/clanbattle_info'
 
 lmt = FreqLimiter(60)   #冷却时间60秒
 process_lock = {}
@@ -116,7 +116,33 @@ async def cbi(bot, ev: CQEvent):
                 msg = cbr.generate_report(data)
     elif args[0] == 'boss状态':
         msg = get_boss_state_report(group_id)
-    #需要权限的部分
+    elif args[0] == '预约':
+        if len(args) < 2 or not args[1].isdigit():
+            msg = '请指定boss'
+        elif target_id == 0:
+            msg = add_reservation(group_id, int(args[1]) - 1, user_id)
+        else:
+            msg = add_reservation(group_id, int(args[1]) - 1, target_id)
+    elif args[0] == '取消预约':
+        if len(args) < 2 or not args[1].isdigit():
+            msg = '请指定boss'
+        elif target_id == 0:
+            msg = remove_reservation(group_id, int(args[1]) - 1, user_id)
+        else:
+            msg = remove_reservation(group_id, int(args[1]) - 1, target_id)
+    elif args[0] == '查看预约' or  args[0] == '查询预约':
+        msg = '预约情况:'
+        try:
+            for i in range(5):
+                msg += f'\n{i+1}王: '
+                rlist = group_data[group_id]['reservation'][str(i)]
+                for qqid in rlist:
+                    m = await bot.get_group_member_info(self_id=ev.self_id, group_id=ev.group_id, user_id=qqid)
+                    qqname = m["card"] or m["nickname"] or str(qqid)
+                    msg += f'{qqname} '
+        except:
+            msg = '数据错误'
+#需要权限的部分
     elif args[0] == '初始化':
         if is_admin:
             if await init_group(group_id) != 0:
@@ -229,6 +255,13 @@ async def group_process(bot, group_id: str):
                 if len(result) > 0:
                     msg = format_challenge_report(result)
                     await send_group_msg(bot, group_id, msg)
+            #预约检查
+            rlist = check_reservation(group_id)
+            if len(rlist) > 0:
+                msg = get_boss_state_report(group_id) + '\n'
+                for qqid in rlist:
+                    msg += f'[CQ:at,qq={qqid}] '
+                await send_group_msg(bot, group_id, msg)
             #自动报刀
             if is_auto_report_enable(group_id):
                 await report_process(bot, group_id)

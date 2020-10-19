@@ -3,6 +3,7 @@ import aiohttp
 import asyncio
 import datetime
 import json
+import traceback
 
 from .base import *
 
@@ -173,11 +174,10 @@ def get_boss_state_report(group_id: str) -> (int, str):
     boss_info = {}
     try:
         boss_info = clanbattle_info[group_id]['boss_info']
+        msg = "boss状态:"
+        msg += f"\n{boss_info['lap_num']}周目 {boss_info['name']}"
+        msg += f"\n{format_number(boss_info['current_life'])} / {format_number(boss_info['total_life'])} "
+        msg += f"({boss_info['current_life']/boss_info['total_life']*100:.2f}%)"
     except:
-        return '无数据'
-
-    msg = "boss状态:"
-    msg += f"\n{boss_info['lap_num']}周目 {boss_info['name']}"
-    msg += f"\n{format_number(boss_info['current_life'])} / {format_number(boss_info['total_life'])} "
-    msg += f"({boss_info['current_life']/boss_info['total_life']*100:.2f}%)"
+        msg = "无数据"
     return msg
