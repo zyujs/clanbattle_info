@@ -6,6 +6,7 @@ import json
 import hoshino
 import traceback
 import re
+import random
 from hoshino import Service, priv 
 from hoshino.typing import CQEvent
 from hoshino.util import FreqLimiter
@@ -13,11 +14,10 @@ from .base import *
 from .info import *
 from .yobot import *
 
-HELP_MSG = 'clanbattle_info\n公会战信息管理系统\n指令前缀:cbi\n指令表:帮助,总表,日总表,日出刀表,boss出刀表,boss状态,状态,检查成员,绑定,解除绑定,查看绑定,绑定未知成员,解除绑定未知成员,继续报刀,暂停报刀,重置报刀进度,重置推送进度,初始化,生成会战报告,生成离职报告\n详细说明见项目文档: https://github.com/zyujs/clanbattle_info'
+HELP_MSG = 'clanbattle_info\n公会战信息管理系统\n指令前缀:cbi\n指令表:帮助,总表,日总表,日出刀表,boss出刀表,个人出刀表,boss状态,状态,检查成员,绑定,解除绑定,查看绑定,绑定未知成员,解除绑定未知成员,继续报刀,暂停报刀,重置报刀进度,重置推送进度,初始化,生成会战报告,生成离职报告\n详细说明见项目文档: https://github.com/zyujs/clanbattle_info'
 
 lmt = FreqLimiter(60)   #冷却时间60秒
 process_lock = {}
-job_timestamp = datetime.datetime.now()
 
 sv = Service('clanbattle_info', bundle='pcr查询', help_= HELP_MSG)
 
@@ -74,6 +74,15 @@ async def cbi(bot, ev: CQEvent):
         if boss > 0:
             boss -= 1
         msg = await get_boss_report(group_id, boss)
+    elif args[0] == '个人出刀表':
+        if len(args) < 2: #最小参数 绑定 昵称
+            msg = '需要附带游戏昵称'
+        else:
+            name = args[1]
+            names = re.findall(r"\[(.+?)\]",ev.message.extract_plain_text())
+            if len(names) > 0:
+                name = names[0]
+            msg = await get_member_challenge_report(group_id, name)
     elif args[0] == '查看绑定':
             msg = get_bind_msg(group_id)
     elif args[0] == '状态':
@@ -227,24 +236,14 @@ async def group_process(bot, group_id: str):
         traceback.print_exc()
     process_lock[group_id].release()
         
-#每个整5分钟的+30s~+3m30s范围执行任务
-@sv.scheduled_job('cron',minute='2,7,12,17,22,27,32,37,42,47,52,57', jitter=90)
+start_time = f'2020-01-01 00:{random.randint(1,3):02d}:{random.randint(0,59):02d}'
+@sv.scheduled_job('interval',minutes=5, start_date=start_time)
 async def job():
-    global job_timestamp
-    #防止由于apscheduler的bug而被连续调用2次
-    now = datetime.datetime.now()
-    if now - job_timestamp < datetime.timedelta(minutes=1):
-        return
-    job_timestamp = now
-
+    #改用interval+随机start_time方式,避开jitter的bug
     bot = hoshino.get_bot()
     updated = await check_update()
 
-    available_group = {}
-    bot_group_list = await bot.get_group_list()
-    for item in bot_group_list:
-        available_group[int(item['group_id'])] = True
-
+    available_group = await sv.get_enable_groups()
     glist = get_group_list()
     tasks = []
     for group_id in glist:
