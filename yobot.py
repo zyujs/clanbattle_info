@@ -86,7 +86,7 @@ def embedded_yobot_add_challenge(group_id: str, challenge):
         result = clanbattle.challenge(int(group_id), challenge['qqid'], defeat, challenge['damage'], None, previous_day=previous_day)
         msg = 'yobot新增出刀记录:\n' + str(result)
     except Exception as e:
-        msg = 'yobott添加出刀记录失败:\n' + str(e)
+        msg = 'yobot添加出刀记录失败:\n' + str(e)
         return 1, msg
     return 0, msg
 
